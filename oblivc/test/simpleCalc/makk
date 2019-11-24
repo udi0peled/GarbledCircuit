@@ -1,0 +1,9 @@
+cd ../../../
+make DEBUG=1
+
+if [ $? -eq 0 ]; then
+    cd -
+    make DEBUG=1
+else
+    cd -
+fi

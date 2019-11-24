@@ -1,0 +1,120 @@
+#include <obliv.oh>
+#include <stdio.h>
+#include <assert.h>
+#include <common.h>
+
+#include "simpleCalc.h"
+
+// from common.h which causes openssl:327 error on include
+void print_array(const char * prefix, const byte * arr, unsigned int len, const char * spacer, const char * suffix);
+
+void calc_and(void* args)
+{
+  protocolIO *io=args;
+
+  obliv unsigned char v1[N];
+  obliv unsigned char v2[N];
+  obliv unsigned char v3[N];
+
+  feedOblivCharArray(v1, io->value, N, 1);
+  feedOblivCharArray(v2, io->value, N, 2);
+  
+  for (int i = 0; i < N; ++i) {
+    v3[i] = v1[i] & v2[i];
+  }
+  
+  revealOblivCharArray(io->result, v3, N, 0);
+}
+
+void calc_add_char(void* args)
+{
+  protocolIO *io=args;
+  
+  obliv unsigned char v1[N];
+  obliv unsigned char v2[N];
+  obliv unsigned char v3[N];
+
+  feedOblivCharArray(v1, io->value, N, 1);
+  feedOblivCharArray(v2, io->value, N, 2);
+  
+  for (int i = 0; i < N; ++i) {
+    v3[i] = v1[i] + v2[i];
+  }
+  
+  revealOblivCharArray(io->result, v3, N, 0);
+}
+
+#define GetBit(c,b) (((c) >> (b)) & 0x01)
+
+void add_mod_char(obliv unsigned char* r, obliv unsigned char a, obliv unsigned char b) {
+  *r = 0;
+
+  obliv bool carry;
+  obliv bool bit_a;
+  obliv bool bit_b;
+  obliv bool temp;
+
+  carry = 0;
+
+  // i = 0, carry is 0
+  bit_a = GetBit(a, 0);
+  bit_b = GetBit(b, 0);
+
+  *r |= (bit_a ^ bit_b);
+  carry = (bit_a & bit_b);
+
+  // middle general case
+  for (int i = 1; i < 7; ++i) {
+    
+    bit_a = GetBit(a, i);
+    bit_b = GetBit(b, i);
+    
+    temp = bit_b ^ carry;
+
+    *r |= (bit_a ^ temp) << i;
+    carry = (((carry ^ bit_a) & temp) ^ carry);
+  }
+
+  // i = 7, ignore last carry
+  bit_a = GetBit(a, 7);
+  bit_b = GetBit(b, 7);
+  
+  temp = bit_b ^ carry;
+
+  *r |= (bit_a ^ temp) << 7;
+}
+
+void calc_plus_mod_char(void* args) {
+  protocolIO *io=args;
+  
+  obliv unsigned char v1[N];
+  obliv unsigned char v2[N];
+  obliv unsigned char v3[N];
+
+  feedOblivCharArray(v1, io->value, N, 1);
+  feedOblivCharArray(v2, io->value, N, 2);
+
+  for (int i = 0; i < N; ++i) {
+    add_mod_char(&v3[i], v1[i], v2[i]);
+  }
+  
+  revealOblivCharArray(io->result, v3, N, 0);
+}
+
+void calc_add_int(void* args)
+{
+  protocolIO *io=args;
+  
+  obliv unsigned int v1[N];
+  obliv unsigned int v2[N];
+  obliv unsigned int v3[N];
+
+  feedOblivIntArray(v1, io->value, N, 1);
+  feedOblivIntArray(v2, io->value, N, 2);
+  
+  for (int i = 0; i < N; ++i) {
+    v3[i] = v1[i] + v2[i];
+  }
+  
+  revealOblivIntArray(io->result, v3, N, 0);
+}
