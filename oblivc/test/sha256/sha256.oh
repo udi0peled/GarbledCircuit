@@ -1,0 +1,12 @@
+#pragma once
+#include"./sha256.h"
+
+typedef obliv unsigned char obyte;
+typedef obliv unsigned int oword;
+
+typedef struct {
+	obyte data[64];
+	word datalen;
+	unsigned long long bitlen;
+	oword state[8];
+} sha256_octx;

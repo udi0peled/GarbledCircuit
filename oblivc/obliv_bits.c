@@ -435,11 +435,11 @@ void finish_circuit_info() {
 
 int should_evaluate_circuit = 1;
 
-void add_gate_info(OblivBit* r, const OblivBit* a, const OblivBit* b, char ttable) { 
+void add_gate_info(OblivBit* r, const OblivBit* a, const OblivBit* b, unsigned char ttable) { 
   
   GateInfo new_gate;
 
-  unsigned long new_index = circuit_info.gate_count++;
+  gate_index new_index = circuit_info.gate_count++;
 
   circuit_info.circuit = realloc(circuit_info.circuit, sizeof(GateInfo) * circuit_info.gate_count);
   
@@ -511,8 +511,8 @@ void add_gate_info(OblivBit* r, const OblivBit* a, const OblivBit* b, char ttabl
 
 void add_input_gate(OblivBit* gate, int party) {
   if ((0 <= party) && (party < 3)) {
-    unsigned long new_index = circuit_info.num_inputs[party]++;
-    circuit_info.inputs[party] = realloc(circuit_info.inputs[party], sizeof(circuit_info.inputs[party][0]) * circuit_info.num_inputs[party]);
+    gate_index new_index = circuit_info.num_inputs[party]++;
+    circuit_info.inputs[party] = realloc(circuit_info.inputs[party], sizeof(gate_index) * circuit_info.num_inputs[party]);
     circuit_info.inputs[party][new_index] = gate->index;
 
     if (should_evaluate_circuit) {
@@ -523,17 +523,18 @@ void add_input_gate(OblivBit* gate, int party) {
 
 void add_output_gate(const OblivBit* gate, int party) {
   if ((0 <= party) && (party < 3)) {
-    unsigned long new_index = circuit_info.num_outputs[party]++;
-    circuit_info.outputs[party] = realloc(circuit_info.outputs[party], sizeof(circuit_info.outputs[party][0]) * circuit_info.num_outputs[party]);
+    gate_index new_index = circuit_info.num_outputs[party]++;
+    circuit_info.outputs[party] = realloc(circuit_info.outputs[party], sizeof(gate_index) * circuit_info.num_outputs[party]);
 
     circuit_info.outputs[party][new_index] = gate->index;
   }
 }
 
 void print_circuit_info() {
-  for (unsigned long i=0; i < circuit_info.gate_count; ++i) {
+  for (gate_index i=0; i < circuit_info.gate_count; ++i) {
     
     GateInfo* gate = &circuit_info.circuit[i];
+    
     fprintf(stderr, "%-10lu%-10lu%-10lu%-4x", i, gate->input1, gate->input2, gate->ttable & 0x0f);
     
     if (should_evaluate_circuit) {
@@ -547,7 +548,7 @@ void print_circuit_info() {
   fprintf(stderr, "public/p1/p2 inputs:\n");
   for (int player = 0; player < 3; ++player) {
     
-    for (unsigned long i = 0; i < circuit_info.num_inputs[player]; ++i) {
+    for (gate_index i = 0; i < circuit_info.num_inputs[player]; ++i) {
       fprintf(stderr, "%-6lu ", circuit_info.inputs[player][i]);
     }
 
@@ -555,7 +556,7 @@ void print_circuit_info() {
 
     if (should_evaluate_circuit) {
 
-      for (unsigned long i = 0; i < circuit_info.num_inputs[player]; ++i) {
+      for (gate_index i = 0; i < circuit_info.num_inputs[player]; ++i) {
         fprintf(stderr, "%-6x ", (circuit_info.circuit[circuit_info.inputs[player][i]].ttable & 0x10) >> 4);
       }
 
@@ -566,7 +567,7 @@ void print_circuit_info() {
   fprintf(stderr, "public/p1/p2 outputs:\n");
   for (int player = 0; player < 3; ++player) {
     
-    for (unsigned long i = 0; i < circuit_info.num_outputs[player]; ++i) {
+    for (gate_index i = 0; i < circuit_info.num_outputs[player]; ++i) {
       fprintf(stderr, "%-6lu ", circuit_info.outputs[player][i]);
     }
 
@@ -574,7 +575,7 @@ void print_circuit_info() {
 
     if (should_evaluate_circuit) {
 
-      for (unsigned long i = 0; i < circuit_info.num_outputs[player]; ++i) {
+      for (gate_index i = 0; i < circuit_info.num_outputs[player]; ++i) {
         fprintf(stderr, "%-6x ", (circuit_info.circuit[circuit_info.outputs[player][i]].ttable & 0x10) >> 4);
       }
 
@@ -596,11 +597,41 @@ int save_circuit_to_file() {
       return 1;
   }
 
-  fwrite(&circuit_info, sizeof(CircuitInfo), 1, outfile);
+  // Used to zero values in struct, which will return later
+  gate_index* inputs_ptr[3];
+  gate_index* outputs_ptr[3];
+  GateInfo* circuit_ptr;
 
-  fwrite(circuit_info.circuit, sizeof(GateInfo), circuit_info.gate_count, outfile);
+  for (int pl = 0; pl < 3; ++pl) {
+
+    inputs_ptr[pl] = circuit_info.inputs[pl];
+    circuit_info.inputs[pl] = NULL;
+
+    outputs_ptr[pl] = circuit_info.outputs[pl];
+    circuit_info.outputs[pl] = NULL;
+  }
+  circuit_ptr = circuit_info.circuit;
+  circuit_info.circuit = NULL;
+
+  // Write values (after zeroing pointers)
+  fwrite(&circuit_info, sizeof(CircuitInfo), 1, outfile);
+  fwrite(circuit_ptr, sizeof(GateInfo), circuit_info.gate_count, outfile);
+
+  for (int pl = 0; pl < 3; ++pl) {
+    
+    fwrite(inputs_ptr[pl], sizeof(gate_index), circuit_info.num_inputs[pl], outfile);
+    fwrite(outputs_ptr[pl], sizeof(gate_index), circuit_info.num_outputs[pl], outfile);
+  }
+
   fclose (outfile); 
   
+  // Reset the correct pointers and values
+  for (int pl = 0; pl < 3; ++pl) {
+    circuit_info.inputs[pl] = inputs_ptr[pl];
+    circuit_info.outputs[pl] = outputs_ptr[pl];
+  }
+  circuit_info.circuit = circuit_ptr;
+
   return 0;
 }
 
@@ -769,11 +800,12 @@ void execDebugProtocol(ProtocolDesc* pd, protocol_run start, void* arg)
 
   start(arg);
 
-  print_circuit_info();
+  
 
-  //if (pd->thisParty == 1) {
-    //save_circuit_to_file();
-  //}
+  if (pd->thisParty == 1) {
+    print_circuit_info();
+    save_circuit_to_file();
+  }
 
   finish_circuit_info();
 }

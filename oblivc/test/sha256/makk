@@ -1,0 +1,19 @@
+#!/bin/bash
+
+TODEBUG=1
+if [ "$1" == "0" ]; then
+	TODEBUG=0
+	echo "debug compile"
+fi
+
+if [ "$2" == "clean" ]; then
+	cd ../../../
+	make clean
+	cd -
+	make clean
+fi
+
+cd ../../../
+make DEBUG=$TODEBUG
+cd -
+make DEBUG=$TODEBUG

@@ -99,29 +99,34 @@ typedef struct {
 
 typedef OTrecver COTrecver; // Strong typedef would have been nice
 
+// ------------------ Circuit Infomation ----------------------------
+
+typedef unsigned int gate_index;
+
 typedef struct GateInfo {
-  unsigned long input1;
-  unsigned long input2;
+  gate_index input1;
+  gate_index input2;
   unsigned char ttable;
   //yao_key_t key;
 } GateInfo;
 
 typedef struct CircuitInfo {
-
-  // Arrays to sizes and indices for: [0]=public, [1]=p1, [2]=p2
-  unsigned long num_inputs[3];
-  unsigned long num_outputs[3];
   
-  unsigned long* inputs[3];
-  unsigned long* outputs[3];
-  
-  unsigned long gate_count;
-  unsigned long num_not_gates;
-  unsigned long num_xor_gates;
-  unsigned long num_or_gates;
-  unsigned long num_and_gates;
+  gate_index gate_count;
+  gate_index num_not_gates;
+  gate_index num_xor_gates;
+  gate_index num_or_gates;
+  gate_index num_and_gates;
 
   GateInfo* circuit;
+
+  // Arrays to sizes and indices for: [0]=public, [1]=p1, [2]=p2
+  gate_index num_inputs[3];
+  gate_index num_outputs[3];
+  
+  gate_index* inputs[3];
+  gate_index* outputs[3];
+
 } CircuitInfo;
 
 /* Somehow I have settled on this "allocation-on-initialization"
